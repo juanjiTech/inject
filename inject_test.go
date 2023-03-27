@@ -100,6 +100,21 @@ func TestInjector_Apply(t *testing.T) {
 	expect(t, "another dep", s.Dep2)
 }
 
+func TestInjector_Load(t *testing.T) {
+	inj := New()
+
+	dep1 := "a dep"
+	inj.Map(&dep1)
+	dep1l := ""
+	expect(t, inj.Load(&dep1l), nil)
+
+	g := &greeter{"Jeremy"}
+	inj.Map(g)
+	g2 := &greeter{}
+	expect(t, inj.Load(g2), nil)
+	expect(t, g.Name, g2.Name)
+}
+
 func TestInjector_InterfaceOf(t *testing.T) {
 	iType := InterfaceOf((*specialString)(nil))
 	expect(t, reflect.Interface, iType.Kind())

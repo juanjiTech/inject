@@ -68,6 +68,8 @@ type TypeMapper interface {
 	// Value returns the reflect.Value that is mapped to the reflect.Type. It
 	// returns a zeroed reflect.Value if the Type has not been mapped.
 	Value(reflect.Type) reflect.Value
+	// Load value into val. It returns an error if the value is not found or value can't set.
+	Load(val interface{}) error
 }
 
 type injector struct {
@@ -220,6 +222,26 @@ func (inj *injector) Value(t reflect.Type) reflect.Value {
 	}
 
 	return val
+}
+
+// Load value into val. It returns an error if the value is not found or value can't set.
+func (inj *injector) Load(val interface{}) error {
+	valType := reflect.TypeOf(val)
+	value := inj.Value(valType)
+	if !value.IsValid() {
+
+		return fmt.Errorf("value not found for type %v", valType)
+	}
+	v := reflect.ValueOf(val)
+	if v.Kind() != reflect.Ptr {
+		return fmt.Errorf("value not a pointer for type %v", valType)
+	}
+	v = v.Elem()
+	if !v.CanSet() {
+		return fmt.Errorf("value not settable for type %v", valType)
+	}
+	v.Set(value.Elem())
+	return nil
 }
 
 func (inj *injector) SetParent(parent Injector) {
