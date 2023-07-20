@@ -16,7 +16,7 @@ type Injector interface {
 	// SetParent sets the parent of the injector. If the injector cannot find a
 	// dependency in its Type map it will check its parent before returning an
 	// error.
-	SetParent(Injector)
+	SetParent(Injector) Injector
 }
 
 // Applicator represents an interface for mapping dependencies to a struct.
@@ -71,6 +71,8 @@ type TypeMapper interface {
 	// Load value into val. It returns an error if the value is not found or value can't set.
 	Load(val interface{}) error
 }
+
+var _ Injector = (*injector)(nil)
 
 type injector struct {
 	values map[reflect.Type]reflect.Value
@@ -244,6 +246,7 @@ func (inj *injector) Load(val interface{}) error {
 	return nil
 }
 
-func (inj *injector) SetParent(parent Injector) {
+func (inj *injector) SetParent(parent Injector) Injector {
 	inj.parent = parent
+	return inj
 }
