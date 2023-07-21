@@ -4,9 +4,11 @@ Dependency injection for go
 This a modified version of [codegangsta/inject](https://github.com/codegangsta/inject).
 And refer to [flamego/flamego/inject](https://github.com/flamego/flamego/tree/main/inject).
 
+[中文](./README_CN.md)
+
 ## Usage
 
-#### func  InterfaceOf
+#### func InterfaceOf
 
 ```go
 func InterfaceOf(value interface{}) reflect.Type
@@ -30,21 +32,25 @@ Applicator represents an interface for mapping dependencies to a struct.
 #### type Injector
 
 ```go
+// Injector represents an interface for mapping and injecting dependencies into
+// structs and function arguments.
 type Injector interface {
-	Applicator
-	Invoker
-	TypeMapper
-	// SetParent sets the parent of the injector. If the injector cannot find a
-	// dependency in its Type map it will check its parent before returning an
-	// error.
-	SetParent(Injector)
+    Applicator
+    Invoker
+    TypeMapper
+    // Reset will reset Injector, include reset mapped value and parent
+    Reset()
+    // SetParent sets the parent of the injector. If the injector cannot find a
+    // dependency in its Type map it will check its parent before returning an
+    // error.
+    SetParent(Injector) Injector
 }
 ```
 
 Injector represents an interface for mapping and injecting dependencies into
 structs and function arguments.
 
-#### func  New
+#### func New
 
 ```go
 func New() Injector

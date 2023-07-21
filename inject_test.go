@@ -156,6 +156,23 @@ func TestInjector_GetVal(t *testing.T) {
 	expect(t, inj.Value(reflect.TypeOf(11)).IsValid(), false)
 }
 
+func TestInjector_Reset(t *testing.T) {
+	inj := New()
+	inj.Map("some dependency")
+	expect(t, inj.Value(reflect.TypeOf("string")).IsValid(), true)
+
+	inj.Reset()
+	expect(t, inj.Value(reflect.TypeOf("string")).IsValid(), false)
+
+	injFather := New()
+	injFather.Map("some dependency")
+	inj.SetParent(injFather)
+	expect(t, inj.Value(reflect.TypeOf("string")).IsValid(), true)
+
+	inj.Reset()
+	expect(t, inj.Value(reflect.TypeOf("string")).IsValid(), false)
+}
+
 func TestInjector_SetParent(t *testing.T) {
 	inj := New()
 	inj.MapTo("another dep", (*specialString)(nil))

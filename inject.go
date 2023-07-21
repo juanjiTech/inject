@@ -13,6 +13,8 @@ type Injector interface {
 	Applicator
 	Invoker
 	TypeMapper
+	// Reset will reset Injector, include reset mapped value and parent
+	Reset()
 	// SetParent sets the parent of the injector. If the injector cannot find a
 	// dependency in its Type map it will check its parent before returning an
 	// error.
@@ -244,6 +246,11 @@ func (inj *injector) Load(val interface{}) error {
 	}
 	v.Set(value.Elem())
 	return nil
+}
+
+func (inj *injector) Reset() {
+	inj.values = make(map[reflect.Type]reflect.Value)
+	inj.parent = nil
 }
 
 func (inj *injector) SetParent(parent Injector) Injector {
