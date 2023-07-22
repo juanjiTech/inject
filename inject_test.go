@@ -42,6 +42,8 @@ func (myFastInvoker) Invoke([]interface{}) ([]reflect.Value, error) {
 }
 
 func TestInjector_Invoke(t *testing.T) {
+	t.Parallel()
+
 	t.Run("invoke functions", func(t *testing.T) {
 		inj := New()
 
@@ -201,6 +203,9 @@ func BenchmarkInjector_Invoke(b *testing.B) {
 	inj.Map("some dependency").MapTo("another dep", (*specialString)(nil))
 
 	fn := func(d1 string, d2 specialString) string { return "something" }
+
+	b.ReportAllocs()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = inj.Invoke(fn)
 	}
@@ -218,6 +223,9 @@ func BenchmarkInjector_FastInvoke(b *testing.B) {
 	inj.Map("some dependency").MapTo("another dep", (*specialString)(nil))
 
 	fn := testFastInvoker(func(d1 string, d2 specialString) string { return "something" })
+
+	b.ReportAllocs()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = inj.Invoke(fn)
 	}
