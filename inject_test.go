@@ -41,6 +41,16 @@ func (myFastInvoker) Invoke([]interface{}) ([]reflect.Value, error) {
 	return nil, nil
 }
 
+func BenchmarkNew(b *testing.B) {
+	b.ReportAllocs()
+	var j Injector
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		j = New()
+	}
+	_ = j
+}
+
 func TestInjector_Invoke(t *testing.T) {
 	t.Parallel()
 
@@ -173,6 +183,15 @@ func TestInjector_Reset(t *testing.T) {
 
 	inj.Reset()
 	expect(t, inj.Value(reflect.TypeOf("string")).IsValid(), false)
+}
+
+func BenchmarkInjector_Reset(b *testing.B) {
+	b.ReportAllocs()
+	inj := New()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		inj.Reset()
+	}
 }
 
 func TestInjector_SetParent(t *testing.T) {

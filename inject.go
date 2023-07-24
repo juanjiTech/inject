@@ -249,7 +249,9 @@ func (inj *injector) Load(val interface{}) error {
 }
 
 func (inj *injector) Reset() {
-	inj.values = make(map[reflect.Type]reflect.Value)
+	for k := range inj.values {
+		delete(inj.values, k)
+	}
 	inj.parent = nil
 }
 
