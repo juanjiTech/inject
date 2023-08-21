@@ -5,6 +5,7 @@ package inject
 import (
 	"fmt"
 	"reflect"
+	"sync"
 )
 
 // Injector represents an interface for mapping and injecting dependencies into
@@ -79,10 +80,11 @@ var _ Injector = (*injector)(nil)
 type injector struct {
 	values map[reflect.Type]reflect.Value
 	parent Injector
+	mu     sync.RWMutex
 }
 
 // InterfaceOf dereferences a pointer to an Interface type. It panics if value
-// is not an pointer to an interface.
+// is not a pointer to an interface.
 func InterfaceOf(value interface{}) reflect.Type {
 	t := reflect.TypeOf(value)
 	for t.Kind() == reflect.Ptr {
@@ -127,7 +129,7 @@ func (inj *injector) fastInvoke(f FastInvoker, t reflect.Type, numIn int) ([]ref
 			argType = t.In(i)
 			val = inj.Value(argType)
 			if !val.IsValid() {
-				return nil, fmt.Errorf("value not found for type %v", argType)
+				return nil, fmt.Errorf("%w: %v", ErrValueNotFound, argType)
 			}
 
 			in[i] = val.Interface()
@@ -146,7 +148,7 @@ func (inj *injector) callInvoke(f interface{}, t reflect.Type, numIn int) ([]ref
 			argType = t.In(i)
 			val = inj.Value(argType)
 			if !val.IsValid() {
-				return nil, fmt.Errorf("value not found for type %v", argType)
+				return nil, fmt.Errorf("%w: %v", ErrValueNotFound, argType)
 			}
 
 			in[i] = val
@@ -176,7 +178,7 @@ func (inj *injector) Apply(val interface{}) error {
 			ft := f.Type()
 			v := inj.Value(ft)
 			if !v.IsValid() {
-				return fmt.Errorf("value not found for type %v", ft)
+				return fmt.Errorf("%w: %v", ErrValueNotFound, ft)
 			}
 
 			f.Set(v)
@@ -187,24 +189,32 @@ func (inj *injector) Apply(val interface{}) error {
 }
 
 func (inj *injector) Map(values ...interface{}) TypeMapper {
+	inj.mu.Lock()
 	for _, val := range values {
 		inj.values[reflect.TypeOf(val)] = reflect.ValueOf(val)
 	}
+	inj.mu.Unlock()
 	return inj
 }
 
 func (inj *injector) MapTo(val, ifacePtr interface{}) TypeMapper {
+	inj.mu.Lock()
 	inj.values[InterfaceOf(ifacePtr)] = reflect.ValueOf(val)
+	inj.mu.Unlock()
 	return inj
 }
 
 func (inj *injector) Set(typ reflect.Type, val reflect.Value) TypeMapper {
+	inj.mu.Lock()
 	inj.values[typ] = val
+	inj.mu.Unlock()
 	return inj
 }
 
 func (inj *injector) Value(t reflect.Type) reflect.Value {
+	inj.mu.RLock()
 	val := inj.values[t]
+	inj.mu.RUnlock()
 
 	if val.IsValid() {
 		return val
@@ -233,16 +243,15 @@ func (inj *injector) Load(val interface{}) error {
 	valType := reflect.TypeOf(val)
 	value := inj.Value(valType)
 	if !value.IsValid() {
-
-		return fmt.Errorf("value not found for type %v", valType)
+		return fmt.Errorf("%w: %v", ErrValueNotFound, valType)
 	}
 	v := reflect.ValueOf(val)
 	if v.Kind() != reflect.Ptr {
-		return fmt.Errorf("value not a pointer for type %v", valType)
+		return fmt.Errorf("%w: %v", ErrValueCanNotSet, valType)
 	}
 	v = v.Elem()
 	if !v.CanSet() {
-		return fmt.Errorf("value not settable for type %v", valType)
+		return fmt.Errorf("%w: %v", ErrValueCanNotSet, valType)
 	}
 	v.Set(value.Elem())
 	return nil

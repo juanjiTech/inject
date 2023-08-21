@@ -3,7 +3,9 @@ package inject
 import (
 	"fmt"
 	"reflect"
+	"sync"
 	"testing"
+	"unsafe"
 )
 
 type specialString interface{}
@@ -23,9 +25,9 @@ func (g *greeter) String() string {
 }
 
 /* Test Helpers */
-func expect(t *testing.T, a interface{}, b interface{}) {
-	if a != b {
-		t.Errorf("Expected %v (type %v) - Got %v (type %v)", b, reflect.TypeOf(b), a, reflect.TypeOf(a))
+func expect(t testing.TB, actual interface{}, expect interface{}) {
+	if actual != expect {
+		t.Errorf("Expected %v (type %v) - Got %v (type %v)", expect, reflect.TypeOf(expect), actual, reflect.TypeOf(actual))
 	}
 }
 
@@ -39,6 +41,11 @@ type myFastInvoker func(string)
 
 func (myFastInvoker) Invoke([]interface{}) ([]reflect.Value, error) {
 	return nil, nil
+}
+
+func TestInjectorSize(t *testing.T) {
+	// prevent unnecessary memory usage increases
+	expect(t, unsafe.Alignof(injector{}), uintptr(8))
 }
 
 func BenchmarkNew(b *testing.B) {
@@ -140,6 +147,24 @@ func TestInjector_InterfaceOf(t *testing.T) {
 	InterfaceOf((*testing.T)(nil))
 }
 
+func TestInjector_Map(t *testing.T) {
+	inj := New()
+
+	g := &greeter{"Jeremy"}
+	inj.Map(g)
+
+	expect(t, inj.Value(InterfaceOf((*fmt.Stringer)(nil))).IsValid(), true)
+}
+
+func BenchmarkInjector_Map(b *testing.B) {
+	b.ReportAllocs()
+	inj := New()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		inj.Map("Jeremy")
+	}
+}
+
 func TestInjector_Set(t *testing.T) {
 	inj := New()
 
@@ -204,15 +229,6 @@ func TestInjector_SetParent(t *testing.T) {
 	expect(t, inj2.Value(InterfaceOf((*specialString)(nil))).IsValid(), true)
 }
 
-func TestInjector_Implementors(t *testing.T) {
-	inj := New()
-
-	g := &greeter{"Jeremy"}
-	inj.Map(g)
-
-	expect(t, inj.Value(InterfaceOf((*fmt.Stringer)(nil))).IsValid(), true)
-}
-
 func TestIsFastInvoker(t *testing.T) {
 	expect(t, IsFastInvoker(myFastInvoker(nil)), true)
 }
@@ -248,4 +264,51 @@ func BenchmarkInjector_FastInvoke(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, _ = inj.Invoke(fn)
 	}
+}
+
+func TestConcurrent(t *testing.T) {
+	t.Parallel()
+	inj := New()
+	t.Run("Map", func(t *testing.T) {
+		var trigger, wg sync.WaitGroup
+		trigger.Add(1)
+		for i := 0; i < 1000; i++ {
+			wg.Add(1)
+			go func() {
+				trigger.Wait()
+				inj.Map("")
+				wg.Done()
+			}()
+		}
+		trigger.Done()
+		wg.Wait()
+	})
+	t.Run("MapTo", func(t *testing.T) {
+		var trigger, wg sync.WaitGroup
+		trigger.Add(1)
+		for i := 0; i < 1000; i++ {
+			wg.Add(1)
+			go func() {
+				trigger.Wait()
+				inj.MapTo("", (*Injector)(nil))
+				wg.Done()
+			}()
+		}
+		trigger.Done()
+		wg.Wait()
+	})
+	t.Run("Set", func(t *testing.T) {
+		var trigger, wg sync.WaitGroup
+		trigger.Add(1)
+		for i := 0; i < 1000; i++ {
+			wg.Add(1)
+			go func() {
+				trigger.Wait()
+				inj.Set(reflect.TypeOf(""), reflect.ValueOf(""))
+				wg.Done()
+			}()
+		}
+		trigger.Done()
+		wg.Wait()
+	})
 }
